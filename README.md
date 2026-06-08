@@ -1,9 +1,10 @@
 # nms-memory-goblin
 
-Early project skeleton for a future No Man's Sky memory utility.
+Early project skeleton for a No Man's Sky memory utility.
 
-Memory scanning is not implemented yet, and memory-related dependencies such as
-`pymem` are intentionally not installed at this stage.
+Attach and read-only exact-value scanning are implemented. Writing, freezing,
+injection, patching, DLL loading, stealth behavior, anti-cheat bypasses, and
+memory modification are not implemented.
 
 ## PowerShell setup
 
@@ -34,4 +35,16 @@ python -m pip install -e .
 
 ```powershell
 python -m nms_memory_goblin --help
+python -m nms_memory_goblin attach
+python -m nms_memory_goblin attach --process NMS.exe
+python -m nms_memory_goblin scan units 169647079
+python -m nms_memory_goblin scan nanites 793628
+python -m nms_memory_goblin rescan units 169647079
+python -m nms_memory_goblin rescan nanites 793628
+python -m nms_memory_goblin watch units nanites --count 5
 ```
+
+Scan results are saved locally in `.nms-memory-goblin\scan-results.json` so a
+later `rescan` can filter the previous candidate addresses against the same or a
+different value. The `watch` command reads those saved addresses repeatedly and
+prints their current values.

@@ -1,4 +1,5 @@
 .venv/
+.nms-memory-goblin/
 __pycache__/
 *.py[cod]
 *.egg-info/
