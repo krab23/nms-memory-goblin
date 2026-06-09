@@ -1,4 +1,4 @@
-"""Read-only exact value scanning."""
+"""Exact value scanning and saved-address value writing."""
 
 from __future__ import annotations
 
@@ -10,9 +10,11 @@ from typing import Iterable, Literal
 
 from nms_memory_goblin.process import (
     ProcessReadError,
+    ProcessWriteError,
     iter_readable_regions,
     open_process,
     read_process_bytes,
+    write_process_bytes,
 )
 
 ValueType = Literal["uint32", "int32", "uint64", "int64"]
@@ -29,6 +31,22 @@ class ScanResult:
     value: int
     value_type: ValueType
     addresses: list[int]
+
+
+@dataclass(frozen=True)
+class WriteResult:
+    label: str
+    process_name: str
+    address: int
+    value: int
+    value_type: ValueType
+
+
+@dataclass(frozen=True)
+class SelectedAddress:
+    label: str
+    address: int
+    value_type: ValueType
 
 
 def scan_value(process_name: str, label: str, value: int, value_type: ValueType) -> ScanResult:
@@ -93,6 +111,55 @@ def read_saved_values(process_name: str, labels: list[str]) -> dict[str, list[tu
             values[result.label] = label_values
 
     return values
+
+
+def write_saved_value(
+    process_name: str,
+    label: str,
+    value: int,
+    address: int | None = None,
+    index: int = 0,
+) -> WriteResult:
+    selected = select_saved_address(label, address=address, index=index)
+    encoded_value = encode_value(value, selected.value_type)
+
+    with open_process(process_name) as process:
+        write_process_bytes(process, selected.address, encoded_value)
+        try:
+            read_back = read_process_bytes(process, selected.address, len(encoded_value))
+        except ProcessReadError as exc:
+            raise ProcessWriteError(
+                f"Wrote value, but could not verify read at 0x{selected.address:X}"
+            ) from exc
+
+    if decode_value(read_back, selected.value_type) != value:
+        raise ProcessWriteError(
+            f"Verification failed at 0x{selected.address:X}; value did not persist"
+        )
+
+    return WriteResult(
+        label=selected.label,
+        process_name=process_name,
+        address=selected.address,
+        value=value,
+        value_type=selected.value_type,
+    )
+
+
+def select_saved_address(label: str, address: int | None = None, index: int = 0) -> SelectedAddress:
+    result = load_scan_result(label)
+
+    if not result.addresses:
+        raise ValueError(f"No saved addresses for {label!r}.")
+    if index < 0:
+        raise ValueError("index must be 0 or greater")
+
+    selected_address = _resolve_address(result.addresses, address, index)
+    return SelectedAddress(
+        label=result.label,
+        address=selected_address,
+        value_type=result.value_type,
+    )
 
 
 def encode_value(value: int, value_type: ValueType) -> bytes:
@@ -198,6 +265,21 @@ def _find_pattern_addresses(data: bytes, pattern: bytes, base_address: int) -> I
             break
         yield base_address + index
         start = index + 1
+
+
+def _resolve_address(addresses: list[int], address: int | None, index: int) -> int:
+    if address is not None:
+        if address in addresses:
+            return address
+        raise ValueError(
+            f"Address 0x{address:X} is not in saved candidates ({len(addresses)} total)."
+        )
+
+    if len(addresses) == 1:
+        return addresses[0]
+    if index >= len(addresses):
+        raise ValueError(f"index {index} is out of range for {len(addresses)} candidates")
+    return addresses[index]
 
 
 def _load_state() -> dict[str, object]:

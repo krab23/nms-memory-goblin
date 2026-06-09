@@ -8,7 +8,14 @@ from typing import Iterator
 
 import pymem.memory
 from pymem import Pymem
-from pymem.exception import CouldNotOpenProcess, MemoryReadError, ProcessNotFound, PymemError, WinAPIError
+from pymem.exception import (
+    CouldNotOpenProcess,
+    MemoryReadError,
+    MemoryWriteError,
+    ProcessNotFound,
+    PymemError,
+    WinAPIError,
+)
 from pymem.ressources.structure import MEMORY_PROTECTION, MEMORY_STATE
 
 
@@ -26,6 +33,10 @@ class ProcessOpenError(AttachError):
 
 class ProcessReadError(AttachError):
     """Raised when process memory cannot be read."""
+
+
+class ProcessWriteError(AttachError):
+    """Raised when process memory cannot be written."""
 
 
 @dataclass(frozen=True)
@@ -115,6 +126,15 @@ def read_process_bytes(process: Pymem, address: int, size: int) -> bytes:
         return process.read_bytes(address, size)
     except MemoryReadError as exc:
         raise ProcessReadError(f"Could not read {size} bytes at 0x{address:X}") from exc
+
+
+def write_process_bytes(process: Pymem, address: int, data: bytes) -> None:
+    """Write bytes to an open process."""
+
+    try:
+        process.write_bytes(address, data, len(data))
+    except MemoryWriteError as exc:
+        raise ProcessWriteError(f"Could not write {len(data)} bytes at 0x{address:X}") from exc
 
 
 def _is_readable_region(state: int, protection: int) -> bool:
