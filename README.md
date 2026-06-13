@@ -44,7 +44,7 @@ python -m nms_memory_goblin rescan nanites 793628
 python -m nms_memory_goblin write units 123456789 --index 0
 python -m nms_memory_goblin write nanites 999999 --index 0
 python -m nms_memory_goblin write nanites 999999 --address 0x1234ABCD
-python -m nms_memory_goblin freeze units 123456789 --index 0 --interval 0.1
+python -m nms_memory_goblin freeze units 123456789 --index 0 --interval 0.2
 python -m nms_memory_goblin freeze nanites 999999 --index 0 --count 50 --interval 0.05
 python -m nms_memory_goblin watch units nanites --count 5
 ```
